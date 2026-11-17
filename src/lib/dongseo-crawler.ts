@@ -162,62 +162,7 @@ export const MOCK_CAFETERIA: CafeteriaMenu[] = [
 ];
 
 // 학사일정 목업 데이터
-export const MOCK_SCHEDULE: AcademicSchedule[] = [
-  {
-    id: 'sch-1',
-    title: '2학기 수강신청 정정 기간',
-    startDate: '2026-09-28',
-    endDate: '2026-10-02',
-    category: '수강/성적',
-    isImportant: true,
-    dDay: 1,
-  },
-  {
-    id: 'sch-2',
-    title: '2026 DSU 가을 대동제 축제',
-    startDate: '2026-10-08',
-    endDate: '2026-10-09',
-    category: '행사',
-    isImportant: true,
-    dDay: 11,
-  },
-  {
-    id: 'sch-3',
-    title: '2학기 중간고사 시험 기간',
-    startDate: '2026-10-19',
-    endDate: '2026-10-23',
-    category: '시험',
-    isImportant: true,
-    dDay: 22,
-  },
-  {
-    id: 'sch-4',
-    title: '2학기 수업일수 1/2 기준선',
-    startDate: '2026-10-26',
-    endDate: '2026-10-26',
-    category: '수강/성적',
-    isImportant: false,
-    dDay: 29,
-  },
-  {
-    id: 'sch-5',
-    title: '동계 계절학기 수강신청',
-    startDate: '2026-11-16',
-    endDate: '2026-11-20',
-    category: '수강/성적',
-    isImportant: false,
-    dDay: 50,
-  },
-  {
-    id: 'sch-6',
-    title: '2학기 기말고사 시험 기간',
-    startDate: '2026-12-14',
-    endDate: '2026-12-18',
-    category: '시험',
-    isImportant: true,
-    dDay: 78,
-  }
-];
+export const MOCK_SCHEDULE: AcademicSchedule[] = [];
 
 // 공지사항 스크래핑 함수 (동서대 홈페이지)
 export async function scrapeDongseoNotices(category: NoticeCategory = '전체'): Promise<Notice[]> {
@@ -352,3 +297,119 @@ function filterMockNotices(category: NoticeCategory): Notice[] {
   }
   return MOCK_NOTICES.filter(n => n.category === category);
 }
+
+// 🗓️ 동서대학교 공식 웹사이트 학사일정 크롤러
+export async function scrapeDongseoSchedule(year: number = 2026): Promise<AcademicSchedule[]> {
+  const schedules: AcademicSchedule[] = [];
+  const seenKeys = new Set<string>();
+
+  // 1월부터 12월까지 학사일정 스크래핑
+  const months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+
+  try {
+    const fetchPromises = months.map(async (m) => {
+      const url = `${DSU_BASE_URL}/kr/index.php?pCode=dscalendar&mode=listall&y=${year}&m=${m}`;
+      const res = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)',
+        },
+        next: { revalidate: 3600 }, // 1시간 캐시
+      });
+
+      if (!res.ok) return [];
+
+      const html = await res.text();
+      const $ = cheerio.load(html);
+      const monthItems: AcademicSchedule[] = [];
+
+      $('.daily-li').each((i, el) => {
+        const rawDate = $(el).find('.date-core').text().replace(/\s+/g, ' ').trim();
+        const rawTitle = $(el).find('.body-core a.ptit').text().replace(/\s+/g, ' ').trim();
+
+        if (!rawTitle || !rawDate) return;
+
+        // '2026-2학기', '26-2학기', '2026-1학기', '26-1학기', '2027-1학기' 등의 접두사 제거
+        const title = rawTitle.replace(/^(\d{2,4}[-년\s]*[12]학기|\d{2,4}학년도|\d{2,4}년)\s*/, '').trim() || rawTitle;
+
+        // 중복 방지 키
+        const itemKey = `${title}_${rawDate}`;
+        if (seenKeys.has(itemKey)) return;
+        seenKeys.add(itemKey);
+
+        // 날짜 파싱 (예: "11. 09(월)", "11. 23(월) ~ 11. 24(화)", "09. 01(화) ~ 10. 30(금)")
+        let startDateStr = '';
+        let endDateStr = '';
+
+        if (rawDate.includes('~')) {
+          const parts = rawDate.split('~').map(s => s.trim());
+          const startMatch = parts[0].match(/(\d{1,2})\.\s*(\d{1,2})/);
+          const endMatch = parts[1].match(/(\d{1,2})\.\s*(\d{1,2})/);
+
+          if (startMatch) {
+            const startM = String(startMatch[1]).padStart(2, '0');
+            const startD = String(startMatch[2]).padStart(2, '0');
+            startDateStr = `${year}-${startM}-${startD}`;
+          }
+          if (endMatch) {
+            const endM = String(endMatch[1]).padStart(2, '0');
+            const endD = String(endMatch[2]).padStart(2, '0');
+            endDateStr = `${year}-${endM}-${endD}`;
+          } else {
+            endDateStr = startDateStr;
+          }
+        } else {
+          const singleMatch = rawDate.match(/(\d{1,2})\.\s*(\d{1,2})/);
+          if (singleMatch) {
+            const sm = String(singleMatch[1]).padStart(2, '0');
+            const sd = String(singleMatch[2]).padStart(2, '0');
+            startDateStr = `${year}-${sm}-${sd}`;
+            endDateStr = startDateStr;
+          }
+        }
+
+        if (!startDateStr) return;
+
+        // 카테고리 자동 판별
+        let category: AcademicSchedule['category'] = '행사';
+        if (title.includes('시험') || title.includes('고사')) {
+          category = '시험';
+        } else if (title.includes('수업') || title.includes('성적') || title.includes('수강') || title.includes('개강') || title.includes('종강')) {
+          category = '수강/성적';
+        } else if (title.includes('등록') || title.includes('장학')) {
+          category = '등록/장학';
+        } else if (title.includes('휴학') || title.includes('복학') || title.includes('전과')) {
+          category = '휴학/복학';
+        }
+
+        const isImportant =
+          title.includes('고사') ||
+          title.includes('등록금') ||
+          title.includes('개강') ||
+          title.includes('종강') ||
+          title.includes('수강신청');
+
+        monthItems.push({
+          id: `dsu-crawl-${year}-${m}-${i}-${Date.now()}`,
+          title,
+          startDate: startDateStr,
+          endDate: endDateStr || startDateStr,
+          category,
+          isImportant,
+        });
+      });
+
+      return monthItems;
+    });
+
+    const results = await Promise.all(fetchPromises);
+    results.forEach(items => schedules.push(...items));
+
+    // 날짜 오름차순 정렬
+    schedules.sort((a, b) => a.startDate.localeCompare(b.startDate));
+    return schedules;
+  } catch (err) {
+    console.error('[DSU Schedule Crawler Error]', err);
+    return [];
+  }
+}
+
