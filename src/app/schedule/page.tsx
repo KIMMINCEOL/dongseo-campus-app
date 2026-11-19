@@ -446,7 +446,7 @@ function formatKoreanDateDisplay(dateStr: string) {
                         type="button"
                         onClick={() => {
                           if (currentMonth === 11) {
-                            if (currentYear < 2050) {
+                            if (currentYear < 2027) {
                               setCurrentYear(currentYear + 1);
                               setCurrentMonth(0);
                             }
@@ -606,9 +606,9 @@ function formatKoreanDateDisplay(dateStr: string) {
               </span>
               <button
                 type="button"
-                onClick={() => setPickerYear(Math.min(2050, pickerYear + 1))}
+                onClick={() => setPickerYear(Math.min(2027, pickerYear + 1))}
                 className="p-2 text-slate-600 hover:text-slate-900 rounded-xl hover:bg-slate-200/60 active:scale-95 transition"
-                disabled={pickerYear >= 2050}
+                disabled={pickerYear >= 2027}
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
