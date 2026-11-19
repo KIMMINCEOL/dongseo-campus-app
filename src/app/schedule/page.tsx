@@ -119,12 +119,13 @@ export default function SchedulePage() {
   // 선택된 특정 날짜
   const [selectedDateStr, setSelectedDateStr] = useState<string>(() => formatDate(new Date()));
 
-  // 연속 월 데이터 목록
-  const [months, setMonths] = useState<MonthData[]>([]);
+  // 현재 보고 있는 년도 및 월 (기본값: 오늘 날짜 기준)
+  const [currentYear, setCurrentYear] = useState<number>(() => new Date().getFullYear());
+  const [currentMonth, setCurrentMonth] = useState<number>(() => new Date().getMonth()); // 0 ~ 11
 
-  // 오늘이 속한 달로 스크롤 이동하기 위한 ref 맵
-  const monthRefs = useRef<{ [key: string]: HTMLElement | null }>({});
-  const calendarContainerRef = useRef<HTMLDivElement | null>(null);
+  // 년/월 선택 모달 상태
+  const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
+  const [pickerYear, setPickerYear] = useState<number>(() => new Date().getFullYear());
 
   // 📝 개인 일정 추가 모달 상태
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -189,109 +190,81 @@ function formatKoreanDateDisplay(dateStr: string) {
     fetchSchedule();
   }, []);
 
-  useEffect(() => {
-    const generatedMonths: MonthData[] = [];
+  // 현재 선택된 월의 셀 데이터 계산
+  const currentMonthData = React.useMemo(() => {
+    const y = currentYear;
+    const m = currentMonth;
+    const firstDayOfWeek = new Date(y, m, 1).getDay();
+    const lastDateOfMonth = new Date(y, m + 1, 0).getDate();
+    const prevMonthLastDate = new Date(y, m, 0).getDate();
 
-    // 2026년 1월부터 2050년 12월까지 연속 생성 (2024년, 2025년 삭제)
-    const START_YEAR = 2026;
-    const END_YEAR = 2050;
+    const cells = [];
 
-    for (let y = START_YEAR; y <= END_YEAR; y++) {
-      for (let m = 0; m < 12; m++) {
-        const firstDayOfWeek = new Date(y, m, 1).getDay();
-        const lastDateOfMonth = new Date(y, m + 1, 0).getDate();
-        const prevMonthLastDate = new Date(y, m, 0).getDate();
-
-        const cells = [];
-
-        // 이전 달 날짜 채우기
-        for (let i = firstDayOfWeek - 1; i >= 0; i--) {
-          const d = prevMonthLastDate - i;
-          const prevMonthDate = new Date(y, m - 1, d);
-          const dateStr = formatDate(prevMonthDate);
-          cells.push({
-            dateNumber: d,
-            dateStr,
-            isCurrentMonth: false,
-            schedules: filterSchedulesForDate(dateStr, schedules),
-          });
-        }
-
-        // 현재 달 날짜 채우기
-        for (let d = 1; d <= lastDateOfMonth; d++) {
-          const thisDate = new Date(y, m, d);
-          const dateStr = formatDate(thisDate);
-          cells.push({
-            dateNumber: d,
-            dateStr,
-            isCurrentMonth: true,
-            schedules: filterSchedulesForDate(dateStr, schedules),
-          });
-        }
-
-        // 다음 달 날짜 채우기 (35칸 또는 42칸으로 꽉 채움)
-        const totalCount = cells.length > 35 ? 42 : 35;
-        const remaining = totalCount - cells.length;
-        for (let d = 1; d <= remaining; d++) {
-          const nextMonthDate = new Date(y, m + 1, d);
-          const dateStr = formatDate(nextMonthDate);
-          cells.push({
-            dateNumber: d,
-            dateStr,
-            isCurrentMonth: false,
-            schedules: filterSchedulesForDate(dateStr, schedules),
-          });
-        }
-
-        generatedMonths.push({
-          year: y,
-          month: m,
-          label: `${y}년 ${m + 1}월`,
-          cells,
-        });
-      }
+    // 이전 달 날짜 채우기
+    for (let i = firstDayOfWeek - 1; i >= 0; i--) {
+      const d = prevMonthLastDate - i;
+      const prevMonthDate = new Date(y, m - 1, d);
+      const dateStr = formatDate(prevMonthDate);
+      cells.push({
+        dateNumber: d,
+        dateStr,
+        isCurrentMonth: false,
+        schedules: filterSchedulesForDate(dateStr, schedules),
+      });
     }
 
-    setMonths(generatedMonths);
-  }, [schedules]);
-
-  // 🚀 새로고침/진입 시 오늘이 속한 달과 실제 오늘 날짜로 즉시 바로 나오게 처리
-  useEffect(() => {
-    if (months.length > 0 && !loading) {
-      // 렌더링 즉시 한 번 이동하고, 레이아웃 계산 후 재확인하여 완벽히 안착
-      scrollToToday('instant');
-      const t1 = setTimeout(() => scrollToToday('instant'), 50);
-      const t2 = setTimeout(() => scrollToToday('instant'), 150);
-      const t3 = setTimeout(() => scrollToToday('instant'), 300);
-      return () => {
-        clearTimeout(t1);
-        clearTimeout(t2);
-        clearTimeout(t3);
-      };
+    // 현재 달 날짜 채우기
+    for (let d = 1; d <= lastDateOfMonth; d++) {
+      const thisDate = new Date(y, m, d);
+      const dateStr = formatDate(thisDate);
+      cells.push({
+        dateNumber: d,
+        dateStr,
+        isCurrentMonth: true,
+        schedules: filterSchedulesForDate(dateStr, schedules),
+      });
     }
-  }, [months.length, loading]);
 
-  const scrollToToday = (behaviorParam?: ScrollBehavior | React.MouseEvent) => {
-    const behavior: ScrollBehavior =
-      typeof behaviorParam === 'string' ? behaviorParam : 'smooth';
+    // 다음 달 날짜 채우기 (35칸 또는 42칸으로 균일하게 채움)
+    const totalCount = cells.length > 35 ? 42 : 35;
+    const remaining = totalCount - cells.length;
+    for (let d = 1; d <= remaining; d++) {
+      const nextMonthDate = new Date(y, m + 1, d);
+      const dateStr = formatDate(nextMonthDate);
+      cells.push({
+        dateNumber: d,
+        dateStr,
+        isCurrentMonth: false,
+        schedules: filterSchedulesForDate(dateStr, schedules),
+      });
+    }
+
+    return {
+      year: y,
+      month: m,
+      label: `${y}년 ${m + 1}월`,
+      cells,
+    };
+  }, [currentYear, currentMonth, schedules]);
+
+  const scrollToToday = () => {
     const now = new Date();
-    const todayStr = formatDate(now);
-    setSelectedDateStr(todayStr);
+    setCurrentYear(now.getFullYear());
+    setCurrentMonth(now.getMonth());
+    setSelectedDateStr(formatDate(now));
+  };
 
-    const key = `${now.getFullYear()}-${now.getMonth()}`;
-    const el = monthRefs.current[key];
-    const container = calendarContainerRef.current;
+  // 년/월 변경 선택창 열기
+  const handleOpenMonthPicker = () => {
+    setPickerYear(currentYear);
+    setIsMonthPickerOpen(true);
+  };
 
-    if (el && container) {
-      // 직접 offsetTop을 계산하여 스크롤 위치를 설정 (snap-mandatory 환경에서도 확실하게 작동)
-      if (behavior === 'instant') {
-        container.scrollTop = el.offsetTop;
-      } else {
-        container.scrollTo({ top: el.offsetTop, behavior: 'smooth' });
-      }
-    } else if (el) {
-      el.scrollIntoView({ behavior, block: 'start' });
-    }
+  // 년/월 선택 완료
+  const handleSelectMonth = (monthIdx: number) => {
+    setCurrentYear(pickerYear);
+    setCurrentMonth(monthIdx);
+    setIsMonthPickerOpen(false);
   };
 
   // 현재 수정 중인 일정 ID (null이면 새 일정 추가 모드)
@@ -423,34 +396,70 @@ function formatKoreanDateDisplay(dateStr: string) {
           </div>
         </div>
 
-        {/* 📱 한 화면에 한 달씩 꽉 차는 세로 스냅(Snap) 스크롤 캘린더 */}
+        {/* 📱 스크롤 없이 단일 월 표시 & 년/월 클릭 시 커스텀 휠 피커로 이동 */}
         {loading ? (
           <div className="flex-1 flex flex-col items-center justify-center text-slate-400">
             <Loader2 className="w-8 h-8 animate-spin text-dongseo-700 mb-2" />
             <span className="text-xs font-medium">학사일정을 불러오는 중...</span>
           </div>
         ) : (
-          <div
-            ref={calendarContainerRef}
-            className="flex-1 overflow-y-auto snap-y snap-mandatory scroll-smooth"
-          >
-            {months.map((monthData) => {
-              const monthKey = `${monthData.year}-${monthData.month}`;
+          <div className="flex-1 flex flex-col px-3 pt-2 pb-1 overflow-hidden">
+            {(() => {
+              const monthData = currentMonthData;
               const rowsCount = monthData.cells.length / 7;
 
               return (
-                <section
-                  key={monthKey}
-                  ref={(el) => {
-                    monthRefs.current[monthKey] = el;
-                  }}
-                  className="h-full snap-start snap-always flex flex-col px-3 pt-2 pb-1 box-border"
-                >
-                  {/* 월 타이틀 */}
-                  <div className="py-1 shrink-0 px-1">
-                    <h2 className="text-lg font-extrabold text-slate-900 tracking-tight">
-                      {monthData.label}
-                    </h2>
+                <div className="h-full flex flex-col box-border">
+                  {/* 월 타이틀: 클릭 시 년도/달 선택 팝업 열림 */}
+                  <div className="py-1 shrink-0 px-1 flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={handleOpenMonthPicker}
+                      className="group flex items-center gap-1.5 py-1 px-2 -ml-2 rounded-xl hover:bg-slate-100 active:scale-95 transition"
+                    >
+                      <h2 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-1">
+                        <span>{monthData.label}</span>
+                        <ChevronRight className="w-5 h-5 text-dongseo-700 group-hover:translate-x-0.5 transition-transform" />
+                      </h2>
+                    </button>
+
+                    {/* 이전 달 / 다음 달 버튼 */}
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (currentMonth === 0) {
+                            if (currentYear > 2026) {
+                              setCurrentYear(currentYear - 1);
+                              setCurrentMonth(11);
+                            }
+                          } else {
+                            setCurrentMonth(currentMonth - 1);
+                          }
+                        }}
+                        className="p-1.5 text-slate-500 hover:text-slate-900 rounded-xl hover:bg-slate-100 active:scale-90 transition"
+                        title="이전 달"
+                      >
+                        <ChevronLeft className="w-5 h-5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (currentMonth === 11) {
+                            if (currentYear < 2050) {
+                              setCurrentYear(currentYear + 1);
+                              setCurrentMonth(0);
+                            }
+                          } else {
+                            setCurrentMonth(currentMonth + 1);
+                          }
+                        }}
+                        className="p-1.5 text-slate-500 hover:text-slate-900 rounded-xl hover:bg-slate-100 active:scale-90 transition"
+                        title="다음 달"
+                      >
+                        <ChevronRight className="w-5 h-5" />
+                      </button>
+                    </div>
                   </div>
 
                   {/* 월 타이틀 바로 밑에 배치된 요일 헤더 */}
@@ -559,12 +568,89 @@ function formatKoreanDateDisplay(dateStr: string) {
                       );
                     })}
                   </div>
-                </section>
+                </div>
               );
-            })}
+            })()}
           </div>
         )}
       </div>
+
+      {/* 📅 년도 및 월 선택 모달 (iOS 스타일 휠/피커 및 라운드 스타일) */}
+      {isMonthPickerOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white w-full max-w-[360px] rounded-3xl shadow-2xl overflow-hidden p-5 space-y-4">
+            {/* 상단 헤더 */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <span className="text-sm font-extrabold text-slate-900">날짜 이동</span>
+              <button
+                type="button"
+                onClick={() => setIsMonthPickerOpen(false)}
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* 년도 선택 (< > 이동 버튼 및 뱃지) */}
+            <div className="flex items-center justify-between px-2 py-1 bg-slate-50 border border-slate-200/80 rounded-2xl">
+              <button
+                type="button"
+                onClick={() => setPickerYear(Math.max(2026, pickerYear - 1))}
+                className="p-2 text-slate-600 hover:text-slate-900 rounded-xl hover:bg-slate-200/60 active:scale-95 transition"
+                disabled={pickerYear <= 2026}
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="text-base font-extrabold text-slate-900 tracking-tight">
+                {pickerYear}년
+              </span>
+              <button
+                type="button"
+                onClick={() => setPickerYear(Math.min(2050, pickerYear + 1))}
+                className="p-2 text-slate-600 hover:text-slate-900 rounded-xl hover:bg-slate-200/60 active:scale-95 transition"
+                disabled={pickerYear >= 2050}
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* 1월 ~ 12월 그리드 선택 (아이폰 라운드 뱃지 스타일) */}
+            <div className="grid grid-cols-3 gap-2 pt-1">
+              {Array.from({ length: 12 }, (_, i) => i).map((mIdx) => {
+                const isCur = pickerYear === currentYear && mIdx === currentMonth;
+                return (
+                  <button
+                    key={mIdx}
+                    type="button"
+                    onClick={() => handleSelectMonth(mIdx)}
+                    className={`py-3 rounded-2xl font-bold text-xs transition border ${
+                      isCur
+                        ? 'bg-dongseo-700 text-white border-dongseo-700 shadow-sm'
+                        : 'bg-slate-50 text-slate-800 border-slate-200/80 hover:bg-slate-100 hover:border-dongseo-300'
+                    }`}
+                  >
+                    {mIdx + 1}월
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* 오늘로 바로 가기 버튼 */}
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  scrollToToday();
+                  setIsMonthPickerOpen(false);
+                }}
+                className="w-full py-2.5 bg-dongseo-50 hover:bg-dongseo-100 text-dongseo-700 font-extrabold text-xs rounded-xl transition"
+              >
+                오늘 날짜({new Date().getFullYear()}년 {new Date().getMonth() + 1}월)로 이동
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 📱 사진 속 UI와 동일한 개인 일정 추가 모달 */}
       {isAddModalOpen && (
