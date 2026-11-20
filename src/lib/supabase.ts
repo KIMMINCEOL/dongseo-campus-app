@@ -5,14 +5,19 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
-export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+export const isSupabaseConfigured = Boolean(
+  supabaseUrl &&
+  supabaseAnonKey &&
+  supabaseUrl.startsWith('http') &&
+  !supabaseUrl.includes('your_supabase_project_url')
+);
 
 export const supabase = isSupabaseConfigured
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
 
 // 서버 사이드 전용 어드민 클라이언트 (RLS 우회 및 안전한 UPSERT 보장)
-export const supabaseAdmin = supabaseUrl && supabaseServiceRoleKey
+export const supabaseAdmin = (isSupabaseConfigured && supabaseUrl && supabaseServiceRoleKey && supabaseServiceRoleKey.startsWith('ey'))
   ? createClient(supabaseUrl, supabaseServiceRoleKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     })
