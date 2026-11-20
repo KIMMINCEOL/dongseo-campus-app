@@ -17,6 +17,11 @@ import {
 } from 'lucide-react';
 
 export default function HomePage() {
+  const now = new Date();
+  const academicYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+  const semester = currentMonth >= 3 && currentMonth <= 8 ? '1학기' : '2학기';
+
   const recentNotices = MOCK_NOTICES.slice(0, 4);
   const todaysLunch = MOCK_CAFETERIA.find(
     (m) => m.restaurant === '학생식당' && m.mealType === '중식'
@@ -35,7 +40,7 @@ export default function HomePage() {
             <div className="flex items-center justify-between text-xs text-dongseo-200 mb-2">
               <span className="flex items-center gap-1 font-medium">
                 <Clock className="w-3.5 h-3.5" />
-                2026학년도 2학기
+                {academicYear}학년도 {semester}
               </span>
               <span className="bg-white/15 px-2 py-0.5 rounded-full text-[11px] font-semibold">
                 동서대학교

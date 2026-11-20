@@ -27,6 +27,12 @@ export default function CafeteriaPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [targetMenu, setTargetMenu] = useState<CafeteriaMenu | null>(null);
 
+  const todayDisplay = new Date().toLocaleDateString('ko-KR', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+
   const fetchMenusAndReviews = async (restaurant: RestaurantType) => {
     setLoading(true);
     try {
@@ -95,7 +101,7 @@ export default function CafeteriaPage() {
         <div className="flex items-center justify-between mt-3 text-xs text-slate-500">
           <span className="flex items-center gap-1 font-semibold text-slate-700">
             <Calendar className="w-3.5 h-3.5 text-dongseo-700" />
-            2026. 09. 27 (오늘의 식단)
+            {todayDisplay} (오늘의 식단)
           </span>
           <button
             onClick={() => handleOpenReviewModal()}

@@ -22,6 +22,11 @@ import {
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
+// 📅 현재 연도 기준 지원 연도 동적 계산 (작년 ~ 내후년 자동 확장)
+const CURRENT_BASE_YEAR = new Date().getFullYear();
+const MIN_SUPPORTED_YEAR = CURRENT_BASE_YEAR - 1;
+const MAX_SUPPORTED_YEAR = CURRENT_BASE_YEAR + 2;
+
 const COLOR_OPTIONS = [
   '#FF3B30', // Red
   '#FF9500', // Orange
@@ -162,16 +167,16 @@ export default function SchedulePage() {
     if (forceRefresh) setIsSyncing(true);
     try {
       const refreshQuery = forceRefresh ? '&refresh=true' : '';
-      // 2026년과 2027년 일정 모두 병합하여 최신화
-      const [res2026, res2027] = await Promise.all([
-        fetch(`/api/schedule?year=2026${refreshQuery}`, { cache: 'no-store' }),
-        fetch(`/api/schedule?year=2027${refreshQuery}`, { cache: 'no-store' }),
-      ]);
-      const data2026 = await res2026.json();
-      const data2027 = await res2027.json();
+      // 현재 연도를 기준으로 이전 연도부터 다음 연도까지 동적으로 병합 조회
+      const targetYears = [CURRENT_BASE_YEAR - 1, CURRENT_BASE_YEAR, CURRENT_BASE_YEAR + 1];
+      const responses = await Promise.all(
+        targetYears.map((y) =>
+          fetch(`/api/schedule?year=${y}${refreshQuery}`, { cache: 'no-store' }).then((r) => r.json())
+        )
+      );
 
       let loaded: CustomSchedule[] = [];
-      const combined = [...(data2026.data || []), ...(data2027.data || [])];
+      const combined = responses.flatMap((res) => res.data || []);
 
       loaded = combined.map((item: CustomSchedule) => ({
         ...item,
@@ -476,7 +481,7 @@ export default function SchedulePage() {
                         type="button"
                         onClick={() => {
                           if (currentMonth === 0) {
-                            if (currentYear > 2026) {
+                            if (currentYear > MIN_SUPPORTED_YEAR) {
                               setCurrentYear(currentYear - 1);
                               setCurrentMonth(11);
                             }
@@ -493,7 +498,7 @@ export default function SchedulePage() {
                         type="button"
                         onClick={() => {
                           if (currentMonth === 11) {
-                            if (currentYear < 2027) {
+                            if (currentYear < MAX_SUPPORTED_YEAR) {
                               setCurrentYear(currentYear + 1);
                               setCurrentMonth(0);
                             }
@@ -642,9 +647,9 @@ export default function SchedulePage() {
             <div className="flex items-center justify-between px-2 py-1 bg-slate-50 border border-slate-200/80 rounded-2xl">
               <button
                 type="button"
-                onClick={() => setPickerYear(Math.max(2026, pickerYear - 1))}
+                onClick={() => setPickerYear(Math.max(MIN_SUPPORTED_YEAR, pickerYear - 1))}
                 className="p-2 text-slate-600 hover:text-slate-900 rounded-xl hover:bg-slate-200/60 active:scale-95 transition"
-                disabled={pickerYear <= 2026}
+                disabled={pickerYear <= MIN_SUPPORTED_YEAR}
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
@@ -653,9 +658,9 @@ export default function SchedulePage() {
               </span>
               <button
                 type="button"
-                onClick={() => setPickerYear(Math.min(2027, pickerYear + 1))}
+                onClick={() => setPickerYear(Math.min(MAX_SUPPORTED_YEAR, pickerYear + 1))}
                 className="p-2 text-slate-600 hover:text-slate-900 rounded-xl hover:bg-slate-200/60 active:scale-95 transition"
-                disabled={pickerYear >= 2027}
+                disabled={pickerYear >= MAX_SUPPORTED_YEAR}
               >
                 <ChevronRight className="w-4 h-4" />
               </button>

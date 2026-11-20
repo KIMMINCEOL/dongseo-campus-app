@@ -299,7 +299,7 @@ function filterMockNotices(category: NoticeCategory): Notice[] {
 }
 
 // 🗓️ 동서대학교 공식 웹사이트 학사일정 크롤러 (실시간 최신화)
-export async function scrapeDongseoSchedule(year: number = 2026): Promise<AcademicSchedule[]> {
+export async function scrapeDongseoSchedule(year: number = new Date().getFullYear()): Promise<AcademicSchedule[]> {
   const schedules: AcademicSchedule[] = [];
   const seenKeys = new Set<string>();
 
