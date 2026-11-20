@@ -388,8 +388,11 @@ export async function scrapeDongseoSchedule(year: number = 2026): Promise<Academ
           title.includes('종강') ||
           title.includes('수강신청');
 
+        // id를 결정론적으로 생성 (중복 방지 및 DB Upsert 시 기존 일정 안전 갱신)
+        const stableId = `dsu-${year}-${startDateStr}-${encodeURIComponent(title.slice(0, 15))}`;
+
         monthItems.push({
-          id: `dsu-crawl-${year}-${m}-${i}-${Date.now()}`,
+          id: stableId,
           title,
           startDate: startDateStr,
           endDate: endDateStr || startDateStr,

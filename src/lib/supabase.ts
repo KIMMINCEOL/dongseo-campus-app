@@ -1,14 +1,22 @@
 import { createClient } from '@supabase/supabase-js';
-import { MealReview } from '@/types';
+import { MealReview, AcademicSchedule } from '@/types';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
 export const supabase = isSupabaseConfigured
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
+
+// 서버 사이드 전용 어드민 클라이언트 (RLS 우회 및 안전한 UPSERT 보장)
+export const supabaseAdmin = supabaseUrl && supabaseServiceRoleKey
+  ? createClient(supabaseUrl, supabaseServiceRoleKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+  : supabase;
 
 // 로컬 인메모리 리뷰 저장소 (Supabase 키가 설정되지 않았을 때 폴백)
 let localReviews: MealReview[] = [
@@ -90,4 +98,64 @@ export async function addMealReview(review: Omit<MealReview, 'id' | 'createdAt'>
 
   localReviews.unshift(newReview);
   return newReview;
+}
+
+// ==============================================================
+// 📅 학사일정 Supabase DB 함수 (초고속 DB 조회 & 스마트 동기화)
+// ==============================================================
+
+export async function getDbAcademicSchedules(): Promise<AcademicSchedule[]> {
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('academic_schedules')
+        .select('*')
+        .order('start_date', { ascending: true });
+
+      if (!error && data && data.length > 0) {
+        return data.map((row: any) => ({
+          id: row.id,
+          title: row.title,
+          startDate: row.start_date,
+          endDate: row.end_date,
+          category: row.category,
+          isImportant: row.is_important,
+        }));
+      }
+    } catch (e) {
+      console.warn('[Supabase Schedule fetch failed]', e);
+    }
+  }
+  return [];
+}
+
+export async function saveSchedulesToDb(schedules: AcademicSchedule[]): Promise<boolean> {
+  const client = supabaseAdmin || supabase;
+  if (!isSupabaseConfigured || !client || schedules.length === 0) return false;
+
+  try {
+    const rows = schedules.map(s => ({
+      id: s.id,
+      title: s.title,
+      start_date: s.startDate,
+      end_date: s.endDate,
+      category: s.category,
+      is_important: s.isImportant ?? false,
+      updated_at: new Date().toISOString(),
+    }));
+
+    // id 기준으로 중복 없이 UPSERT 갱신
+    const { error } = await client
+      .from('academic_schedules')
+      .upsert(rows, { onConflict: 'id' });
+
+    if (error) {
+      console.error('[Supabase Schedule Upsert Error]', error);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error('[Supabase Schedule Save Exception]', e);
+    return false;
+  }
 }

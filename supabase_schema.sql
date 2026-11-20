@@ -24,3 +24,33 @@ CREATE POLICY "Allow public insert access"
   FOR INSERT
   TO anon, authenticated
   WITH CHECK (true);
+
+-- ==============================================================
+-- 📅 동서대 공식 학사일정 테이블 (초고속 조회 & 자동 동기화용)
+-- ==============================================================
+CREATE TABLE IF NOT EXISTS public.academic_schedules (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  start_date TEXT NOT NULL,
+  end_date TEXT NOT NULL,
+  category TEXT NOT NULL,
+  is_important BOOLEAN DEFAULT false,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- RLS: 모든 사용자가 조회 가능, 익명/인증 사용자 쓰기 및 업데이트 허용
+ALTER TABLE public.academic_schedules ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow public read access for schedules"
+  ON public.academic_schedules
+  FOR SELECT
+  TO anon, authenticated
+  USING (true);
+
+CREATE POLICY "Allow public upsert access for schedules"
+  ON public.academic_schedules
+  FOR ALL
+  TO anon, authenticated
+  USING (true)
+  WITH CHECK (true);
+

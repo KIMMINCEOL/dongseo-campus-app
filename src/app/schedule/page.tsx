@@ -116,6 +116,8 @@ interface MonthData {
 export default function SchedulePage() {
   const [schedules, setSchedules] = useState<CustomSchedule[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncToast, setSyncToast] = useState<string | null>(null);
 
   // 선택된 특정 날짜
   const [selectedDateStr, setSelectedDateStr] = useState<string>(() => formatDate(new Date()));
@@ -141,12 +143,12 @@ export default function SchedulePage() {
   const [memo, setMemo] = useState('');
   const [selectedColor, setSelectedColor] = useState(COLOR_OPTIONS[7]); // 기본: 동서대 버건디
 
-function formatKoreanDateDisplay(dateStr: string) {
-  const [y, m, d] = dateStr.split('-');
-  return `${y}. ${parseInt(m, 10)}. ${parseInt(d, 10)}.`;
-}
+  function formatKoreanDateDisplay(dateStr: string) {
+    const [y, m, d] = dateStr.split('-');
+    return `${y}. ${parseInt(m, 10)}. ${parseInt(d, 10)}.`;
+  }
 
-// 🎡 아이폰 스타일 피커 열림 상태 ('start' | 'end' | 'startDate' | 'endDate' | 'repeat' | 'alert' | null)
+  // 🎡 아이폰 스타일 피커 열림 상태 ('start' | 'end' | 'startDate' | 'endDate' | 'repeat' | 'alert' | null)
   const [activePickerTarget, setActivePickerTarget] = useState<
     'start' | 'end' | 'startDate' | 'endDate' | 'repeat' | 'alert' | null
   >(null);
@@ -154,14 +156,16 @@ function formatKoreanDateDisplay(dateStr: string) {
   // 🔍 클릭한 일정 상세 보기 모달 상태
   const [selectedScheduleDetail, setSelectedScheduleDetail] = useState<CustomSchedule | null>(null);
 
-  // 🔄 실시간 학사일정 불러오기 & 최신화 함수
-  const fetchSchedule = async (showLoading = true) => {
+  // 🔄 실시간 학사일정 불러오기 & 최신화 함수 (forceRefresh: 동서대 실시간 크롤링 및 DB 동기화 강제)
+  const fetchSchedule = async (showLoading = true, forceRefresh = false) => {
     if (showLoading) setLoading(true);
+    if (forceRefresh) setIsSyncing(true);
     try {
+      const refreshQuery = forceRefresh ? '&refresh=true' : '';
       // 2026년과 2027년 일정 모두 병합하여 최신화
       const [res2026, res2027] = await Promise.all([
-        fetch('/api/schedule?year=2026', { cache: 'no-store' }),
-        fetch('/api/schedule?year=2027', { cache: 'no-store' }),
+        fetch(`/api/schedule?year=2026${refreshQuery}`, { cache: 'no-store' }),
+        fetch(`/api/schedule?year=2027${refreshQuery}`, { cache: 'no-store' }),
       ]);
       const data2026 = await res2026.json();
       const data2027 = await res2027.json();
@@ -187,10 +191,20 @@ function formatKoreanDateDisplay(dateStr: string) {
         }
       }
       setSchedules(loaded);
+
+      if (forceRefresh) {
+        setSyncToast('동서대 학사일정이 최신화되었습니다.');
+        setTimeout(() => setSyncToast(null), 2500);
+      }
     } catch (err) {
       console.error(err);
+      if (forceRefresh) {
+        setSyncToast('일정 동기화 중 오류가 발생했습니다.');
+        setTimeout(() => setSyncToast(null), 2500);
+      }
     } finally {
       if (showLoading) setLoading(false);
+      if (forceRefresh) setIsSyncing(false);
     }
   };
 
@@ -392,14 +406,15 @@ function formatKoreanDateDisplay(dateStr: string) {
           <span className="text-xs font-bold text-slate-400">학사 캘린더</span>
 
           <div className="flex items-center gap-1.5">
-            {/* 🔄 수동 즉시 새로고침 버튼 */}
+            {/* 🔄 수동 즉시 새로고침 버튼 (동서대 홈페이지에서 강제 최신화) */}
             <button
-              onClick={() => fetchSchedule(false)}
-              className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 active:scale-90 text-slate-600 flex items-center justify-center transition"
-              title="학사일정 최신화"
+              onClick={() => fetchSchedule(false, true)}
+              disabled={isSyncing}
+              className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 active:scale-90 text-slate-600 flex items-center justify-center transition disabled:opacity-50"
+              title="동서대 학사일정 실시간 최신화"
               aria-label="학사일정 최신화"
             >
-              <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-dongseo-700' : ''}`} />
+              <RotateCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-dongseo-700' : ''}`} />
             </button>
 
             <button
@@ -420,6 +435,13 @@ function formatKoreanDateDisplay(dateStr: string) {
             </button>
           </div>
         </div>
+
+        {/* 🔔 최신화 알림 토스트 배너 */}
+        {syncToast && (
+          <div className="fixed top-14 left-1/2 -translate-x-1/2 z-50 bg-slate-900/90 text-white text-xs font-medium px-4 py-2 rounded-full shadow-lg backdrop-blur-md transition-all animate-fade-in pointer-events-none">
+            {syncToast}
+          </div>
+        )}
 
         {/* 📱 스크롤 없이 단일 월 표시 & 년/월 클릭 시 커스텀 휠 피커로 이동 */}
         {loading ? (
