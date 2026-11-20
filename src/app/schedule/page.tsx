@@ -17,6 +17,7 @@ import {
   Edit2,
   Trash2,
   Check,
+  RotateCw,
 } from 'lucide-react';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -153,41 +154,55 @@ function formatKoreanDateDisplay(dateStr: string) {
   // 🔍 클릭한 일정 상세 보기 모달 상태
   const [selectedScheduleDetail, setSelectedScheduleDetail] = useState<CustomSchedule | null>(null);
 
-  useEffect(() => {
-    const fetchSchedule = async () => {
-      setLoading(true);
-      try {
-        const res = await fetch('/api/schedule');
-        const data = await res.json();
-        let loaded: CustomSchedule[] = [];
-        if (data.success) {
-          loaded = data.data.map((item: CustomSchedule) => ({
-            ...item,
-            title: item.title.replace(/^(\d{2,4}[-년\s]*[12]학기|\d{2,4}학년도|\d{2,4}년)\s*/, '').trim() || item.title,
-          }));
-        }
+  // 🔄 실시간 학사일정 불러오기 & 최신화 함수
+  const fetchSchedule = async (showLoading = true) => {
+    if (showLoading) setLoading(true);
+    try {
+      // 2026년과 2027년 일정 모두 병합하여 최신화
+      const [res2026, res2027] = await Promise.all([
+        fetch('/api/schedule?year=2026', { cache: 'no-store' }),
+        fetch('/api/schedule?year=2027', { cache: 'no-store' }),
+      ]);
+      const data2026 = await res2026.json();
+      const data2027 = await res2027.json();
 
-        // 로컬 스토리지에 저장된 사용자 개인 일정 불러오기
-        if (typeof window !== 'undefined') {
-          const saved = localStorage.getItem('dsu_personal_schedules');
-          if (saved) {
-            try {
-              const personal = JSON.parse(saved);
-              loaded = [...loaded, ...personal];
-            } catch (e) {
-              console.error(e);
-            }
+      let loaded: CustomSchedule[] = [];
+      const combined = [...(data2026.data || []), ...(data2027.data || [])];
+
+      loaded = combined.map((item: CustomSchedule) => ({
+        ...item,
+        title: item.title.replace(/^(\d{2,4}[-년\s]*[12]학기|\d{2,4}학년도|\d{2,4}년)\s*/, '').trim() || item.title,
+      }));
+
+      // 로컬 스토리지에 저장된 사용자 개인 일정 불러오기
+      if (typeof window !== 'undefined') {
+        const saved = localStorage.getItem('dsu_personal_schedules');
+        if (saved) {
+          try {
+            const personal = JSON.parse(saved);
+            loaded = [...loaded, ...personal];
+          } catch (e) {
+            console.error(e);
           }
         }
-        setSchedules(loaded);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
       }
-    };
+      setSchedules(loaded);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      if (showLoading) setLoading(false);
+    }
+  };
 
-    fetchSchedule();
+  useEffect(() => {
+    fetchSchedule(true);
+
+    // 🕒 5분(300,000ms)마다 백그라운드에서 동서대 홈페이지를 체크하여 자동 최신화
+    const autoRefreshTimer = setInterval(() => {
+      fetchSchedule(false);
+    }, 5 * 60 * 1000);
+
+    return () => clearInterval(autoRefreshTimer);
   }, []);
 
   // 현재 선택된 월의 셀 데이터 계산
@@ -376,7 +391,17 @@ function formatKoreanDateDisplay(dateStr: string) {
         <div className="bg-white/95 backdrop-blur-md z-20 border-b border-slate-100 px-4 py-1.5 shrink-0 flex items-center justify-between">
           <span className="text-xs font-bold text-slate-400">학사 캘린더</span>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            {/* 🔄 수동 즉시 새로고침 버튼 */}
+            <button
+              onClick={() => fetchSchedule(false)}
+              className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 active:scale-90 text-slate-600 flex items-center justify-center transition"
+              title="학사일정 최신화"
+              aria-label="학사일정 최신화"
+            >
+              <RotateCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-dongseo-700' : ''}`} />
+            </button>
+
             <button
               onClick={scrollToToday}
               className="text-xs font-bold text-dongseo-700 bg-dongseo-50 hover:bg-dongseo-100 active:scale-95 px-3 py-1 rounded-full transition shadow-xs"

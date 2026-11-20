@@ -298,7 +298,7 @@ function filterMockNotices(category: NoticeCategory): Notice[] {
   return MOCK_NOTICES.filter(n => n.category === category);
 }
 
-// 🗓️ 동서대학교 공식 웹사이트 학사일정 크롤러
+// 🗓️ 동서대학교 공식 웹사이트 학사일정 크롤러 (실시간 최신화)
 export async function scrapeDongseoSchedule(year: number = 2026): Promise<AcademicSchedule[]> {
   const schedules: AcademicSchedule[] = [];
   const seenKeys = new Set<string>();
@@ -313,7 +313,7 @@ export async function scrapeDongseoSchedule(year: number = 2026): Promise<Academ
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)',
         },
-        next: { revalidate: 3600 }, // 1시간 캐시
+        cache: 'no-store', // 학교 홈페이지가 수정될 때마다 바로 가져오도록 캐시 방지
       });
 
       if (!res.ok) return [];
