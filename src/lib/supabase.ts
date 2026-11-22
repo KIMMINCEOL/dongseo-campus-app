@@ -164,3 +164,24 @@ export async function saveSchedulesToDb(schedules: AcademicSchedule[]): Promise<
     return false;
   }
 }
+
+// 🕒 연도별 마지막 동기화 시간 및 데이터 건수 조회 (서버 쿨다운 판정용)
+export async function getScheduleSyncMetadata(year: number): Promise<{ lastSyncedAt: string | null; count: number }> {
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('academic_schedules')
+        .select('updated_at')
+        .like('start_date', `${year}%`)
+        .order('updated_at', { ascending: false })
+        .limit(1);
+
+      if (!error && data && data.length > 0 && data[0].updated_at) {
+        return { lastSyncedAt: data[0].updated_at, count: data.length };
+      }
+    } catch (e) {
+      console.warn('[Sync metadata check failed]', e);
+    }
+  }
+  return { lastSyncedAt: null, count: 0 };
+}

@@ -388,7 +388,8 @@ export async function scrapeDongseoSchedule(year: number = new Date().getFullYea
   };
 
   try {
-    // 1. 'm=all' 로 1년치 전체를 한 번에 초고속 스크래핑 (8초 타임아웃)
+    // 🗓️ 단 1회의 단일 HTTP 요청('m=all')으로 1년치 전체 일정을 안전하게 스크래핑
+    // (12개월 반복 요청으로 인한 학교 서버 부하 및 IP 차단 위험 원천 차단)
     const allUrl = `${DSU_BASE_URL}/kr/index.php?pCode=dscalendar&mode=listall&y=${year}&m=all`;
     const resAll = await fetch(allUrl, {
       headers: {
@@ -408,31 +409,7 @@ export async function scrapeDongseoSchedule(year: number = new Date().getFullYea
       }
     }
 
-    // 2. 만약 m=all 결과가 비어있다면 각 월별(1~12월) 병렬 스크래핑 폴백
-    const months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-    const fetchPromises = months.map(async (m) => {
-      const url = `${DSU_BASE_URL}/kr/index.php?pCode=dscalendar&mode=listall&y=${year}&m=${m}`;
-      const res = await fetch(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)',
-        },
-        cache: 'no-store',
-        signal: AbortSignal.timeout(8000),
-      });
-
-      if (!res.ok) return [];
-
-      const html = await res.text();
-      const $ = cheerio.load(html);
-      return parseDailyElements($);
-    });
-
-    const results = await Promise.all(fetchPromises);
-    results.forEach(items => schedules.push(...items));
-
-    // 날짜 오름차순 정렬
-    schedules.sort((a, b) => a.startDate.localeCompare(b.startDate));
-    return schedules;
+    return [];
   } catch (err) {
     console.error('[DSU Schedule Crawler Error]', err);
     return [];

@@ -123,6 +123,7 @@ export default function SchedulePage() {
   const [loading, setLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncToast, setSyncToast] = useState<string | null>(null);
+  const [buttonCooldown, setButtonCooldown] = useState(0);
 
   // 선택된 특정 날짜
   const [selectedDateStr, setSelectedDateStr] = useState<string>(() => formatDate(new Date()));
@@ -166,13 +167,14 @@ export default function SchedulePage() {
     if (showLoading) setLoading(true);
     if (forceRefresh) setIsSyncing(true);
     try {
-      const refreshQuery = forceRefresh ? '&refresh=true' : '';
-      // 현재 연도를 기준으로 이전 연도부터 다음 연도까지 동적으로 병합 조회
+      // 🛡️ 학교 사이트 보호: 사용자가 현재 보고 있는 연도(currentYear)만 refresh=true 전달 (1년에 단 1건의 HTTP 요청)
+      // 나머지 연도는 Supabase DB 캐시에서만 조회하여 학교 사이트 DoS 방지
       const targetYears = [CURRENT_BASE_YEAR - 1, CURRENT_BASE_YEAR, CURRENT_BASE_YEAR + 1];
       const responses = await Promise.all(
         targetYears.map(async (y) => {
           try {
-            const res = await fetch(`/api/schedule?year=${y}${refreshQuery}`, { cache: 'no-store' });
+            const refreshParam = forceRefresh && y === currentYear ? '&refresh=true' : '';
+            const res = await fetch(`/api/schedule?year=${y}${refreshParam}`, { cache: 'no-store' });
             const json = await res.json();
             return { ok: res.ok, ...json };
           } catch (e) {
@@ -181,9 +183,10 @@ export default function SchedulePage() {
         })
       );
 
-      // 크롤링 성공 여부 및 폴백 여부 확인
+      // 크롤링 성공 여부, 폴백 여부, 쿨다운 여부 확인
       const allSucceeded = responses.every((r) => r.ok && r.success);
       const anyFallback = responses.some((r) => r.source === 'fallback_database' || !r.success);
+      const throttledRes = responses.find((r) => r.throttled);
       const combined = responses.flatMap((res) => res.data || []);
 
       // 유효한 일정이 있을 때만 상태를 업데이트 (크롤링 실패/빈 응답 시 기존 일정 증발 방지)
@@ -208,9 +211,11 @@ export default function SchedulePage() {
         setSchedules(loaded);
       }
 
-      // 새로고침 완료 알림 (성공 / 기존 DB 유지 / 완전 실패 구분)
+      // 새로고침 완료 알림 (성공 / 10분 쿨다운 보호 / 기존 DB 유지 / 완전 실패 구분)
       if (forceRefresh) {
-        if (allSucceeded) {
+        if (throttledRes && throttledRes.message) {
+          setSyncToast(throttledRes.message);
+        } else if (allSucceeded) {
           setSyncToast('동서대 학사일정이 최신화되었습니다.');
         } else if (anyFallback && combined.length > 0) {
           setSyncToast('동서대 서버 응답 지연: 기존 저장된 일정을 유지합니다.');
@@ -230,6 +235,15 @@ export default function SchedulePage() {
       if (forceRefresh) setIsSyncing(false);
     }
   };
+
+  // 새로고침 버튼 10초 쿨다운 카운트다운 타이머
+  useEffect(() => {
+    if (buttonCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setButtonCooldown((prev) => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [buttonCooldown]);
 
   useEffect(() => {
     fetchSchedule(true);
@@ -429,15 +443,23 @@ export default function SchedulePage() {
           <span className="text-xs font-bold text-slate-400">학사 캘린더</span>
 
           <div className="flex items-center gap-1.5">
-            {/* 🔄 수동 즉시 새로고침 버튼 (동서대 홈페이지에서 강제 최신화) */}
+            {/* 🔄 수동 즉시 새로고침 버튼 (동서대 홈페이지에서 강제 최신화, 10초 UI 쿨다운) */}
             <button
-              onClick={() => fetchSchedule(false, true)}
-              disabled={isSyncing}
-              className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 active:scale-90 text-slate-600 flex items-center justify-center transition disabled:opacity-50"
-              title="동서대 학사일정 실시간 최신화"
+              onClick={() => {
+                if (isSyncing || buttonCooldown > 0) return;
+                setButtonCooldown(10);
+                fetchSchedule(false, true);
+              }}
+              disabled={isSyncing || buttonCooldown > 0}
+              className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 active:scale-90 text-slate-600 flex items-center justify-center transition disabled:opacity-50 text-[11px] font-bold"
+              title={buttonCooldown > 0 ? `${buttonCooldown}초 후 새로고침 가능` : "동서대 학사일정 실시간 최신화"}
               aria-label="학사일정 최신화"
             >
-              <RotateCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-dongseo-700' : ''}`} />
+              {buttonCooldown > 0 ? (
+                <span className="text-[11px] font-semibold text-slate-400">{buttonCooldown}</span>
+              ) : (
+                <RotateCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-dongseo-700' : ''}`} />
+              )}
             </button>
 
             <button
