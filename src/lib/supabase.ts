@@ -17,7 +17,7 @@ export const supabase = isSupabaseConfigured
   : null;
 
 // 서버 사이드 전용 어드민 클라이언트 (RLS 우회 및 안전한 UPSERT 보장)
-export const supabaseAdmin = (isSupabaseConfigured && supabaseUrl && supabaseServiceRoleKey && supabaseServiceRoleKey.startsWith('ey'))
+export const supabaseAdmin = (isSupabaseConfigured && supabaseUrl && supabaseServiceRoleKey && (supabaseServiceRoleKey.startsWith('ey') || supabaseServiceRoleKey.startsWith('sb_secret_')))
   ? createClient(supabaseUrl, supabaseServiceRoleKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     })
