@@ -350,8 +350,9 @@ export default function SchedulePage() {
     setIsAddModalOpen(true);
   };
 
-  // 기존 일정 수정 모달 열기
+  // 기존 일정 수정 모달 열기 (개인 일정만 수정 가능)
   const handleOpenEditModal = (schedule: CustomSchedule) => {
+    if (!schedule.id.startsWith('personal-')) return;
     setEditingId(schedule.id);
     setTitle(schedule.title);
     setStartDate(schedule.startDate);
@@ -365,8 +366,9 @@ export default function SchedulePage() {
     setIsAddModalOpen(true); // 입력/수정 팝업 열기
   };
 
-  // 일정 삭제
+  // 일정 삭제 (개인 일정만 삭제 가능)
   const handleDeleteSchedule = (id: string) => {
+    if (!id.startsWith('personal-')) return;
     if (!confirm('정말 이 일정을 삭제하시겠습니까?')) return;
 
     const updated = schedules.filter((s) => s.id !== id);
@@ -1376,7 +1378,7 @@ export default function SchedulePage() {
                 <span className="text-xs font-bold text-slate-500">
                   {selectedScheduleDetail.id.startsWith('personal-')
                     ? '개인일정'
-                    : selectedScheduleDetail.category || '학사일정'}
+                    : `동서대 공식 일정 · ${selectedScheduleDetail.category || '학사'}`}
                 </span>
               </div>
               <button
@@ -1440,33 +1442,45 @@ export default function SchedulePage() {
               </div>
             )}
 
-            {/* 버튼 그룹: 수정, 삭제, 닫기 */}
+            {/* 버튼 그룹: 개인 일정에만 수정/삭제 버튼 제공, 학교 공식 일정은 확인(닫기) 버튼만 제공 */}
             <div className="flex items-center gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => handleOpenEditModal(selectedScheduleDetail)}
-                className="flex-1 py-2.5 bg-dongseo-50 hover:bg-dongseo-100 text-dongseo-700 font-extrabold text-xs rounded-xl transition flex items-center justify-center gap-1.5"
-              >
-                <Edit2 className="w-3.5 h-3.5" />
-                수정
-              </button>
+              {selectedScheduleDetail.id.startsWith('personal-') ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenEditModal(selectedScheduleDetail)}
+                    className="flex-1 py-2.5 bg-dongseo-50 hover:bg-dongseo-100 text-dongseo-700 font-extrabold text-xs rounded-xl transition flex items-center justify-center gap-1.5 active:scale-95"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                    수정
+                  </button>
 
-              <button
-                type="button"
-                onClick={() => handleDeleteSchedule(selectedScheduleDetail.id)}
-                className="flex-1 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 font-extrabold text-xs rounded-xl transition flex items-center justify-center gap-1.5"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                삭제
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteSchedule(selectedScheduleDetail.id)}
+                    className="flex-1 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 font-extrabold text-xs rounded-xl transition flex items-center justify-center gap-1.5 active:scale-95"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    삭제
+                  </button>
 
-              <button
-                type="button"
-                onClick={() => setSelectedScheduleDetail(null)}
-                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition"
-              >
-                닫기
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedScheduleDetail(null)}
+                    className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition active:scale-95"
+                  >
+                    닫기
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setSelectedScheduleDetail(null)}
+                  className="w-full py-2.5 bg-dongseo-700 hover:bg-dongseo-800 text-white font-extrabold text-xs rounded-xl transition shadow-xs active:scale-98"
+                >
+                  확인
+                </button>
+              )}
             </div>
           </div>
         </div>
