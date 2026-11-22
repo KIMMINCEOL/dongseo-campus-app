@@ -60,6 +60,35 @@ let localReviews: MealReview[] = [
   }
 ];
 
+// ==============================================================
+// 🍽️ 학식 리뷰 타입 매핑 헬퍼 (DB snake_case <-> App camelCase)
+// ==============================================================
+function mapRowToMealReview(row: any): MealReview {
+  return {
+    id: row.id,
+    menuId: row.menu_id ?? row.menuId,
+    restaurant: row.restaurant,
+    date: row.date,
+    studentEmailMasked: row.student_email_masked ?? row.studentEmailMasked,
+    rating: row.rating,
+    comment: row.comment,
+    createdAt: row.created_at ?? row.createdAt,
+  };
+}
+
+function mapMealReviewToDbRow(review: MealReview) {
+  return {
+    id: review.id,
+    menu_id: review.menuId,
+    restaurant: review.restaurant,
+    date: review.date,
+    student_email_masked: review.studentEmailMasked,
+    rating: review.rating,
+    comment: review.comment,
+    created_at: review.createdAt,
+  };
+}
+
 export async function getMealReviews(menuId?: string, restaurant?: string): Promise<MealReview[]> {
   if (isSupabaseConfigured && supabase) {
     try {
@@ -68,7 +97,7 @@ export async function getMealReviews(menuId?: string, restaurant?: string): Prom
       if (restaurant) query = query.eq('restaurant', restaurant);
       const { data, error } = await query;
       if (!error && data) {
-        return data as MealReview[];
+        return data.map(mapRowToMealReview);
       }
     } catch (e) {
       console.warn('Supabase fetch failed, using local reviews', e);
@@ -91,13 +120,14 @@ export async function addMealReview(review: Omit<MealReview, 'id' | 'createdAt'>
 
   if (isSupabaseConfigured && supabase) {
     try {
+      const dbRow = mapMealReviewToDbRow(newReview);
       const { data, error } = await supabase
         .from('meal_reviews')
-        .insert([newReview])
+        .insert([dbRow])
         .select()
         .single();
       if (!error && data) {
-        return data as MealReview;
+        return mapRowToMealReview(data);
       }
     } catch (e) {
       console.warn('Supabase insert failed, storing locally', e);
