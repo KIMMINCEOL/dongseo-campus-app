@@ -388,13 +388,14 @@ export async function scrapeDongseoSchedule(year: number = new Date().getFullYea
   };
 
   try {
-    // 1. 'm=all' 로 1년치 전체를 한 번에 초고속 스크래핑
+    // 1. 'm=all' 로 1년치 전체를 한 번에 초고속 스크래핑 (8초 타임아웃)
     const allUrl = `${DSU_BASE_URL}/kr/index.php?pCode=dscalendar&mode=listall&y=${year}&m=all`;
     const resAll = await fetch(allUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)',
       },
       cache: 'no-store',
+      signal: AbortSignal.timeout(8000),
     });
 
     if (resAll.ok) {
@@ -416,6 +417,7 @@ export async function scrapeDongseoSchedule(year: number = new Date().getFullYea
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)',
         },
         cache: 'no-store',
+        signal: AbortSignal.timeout(8000),
       });
 
       if (!res.ok) return [];

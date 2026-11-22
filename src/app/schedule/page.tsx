@@ -170,42 +170,60 @@ export default function SchedulePage() {
       // 현재 연도를 기준으로 이전 연도부터 다음 연도까지 동적으로 병합 조회
       const targetYears = [CURRENT_BASE_YEAR - 1, CURRENT_BASE_YEAR, CURRENT_BASE_YEAR + 1];
       const responses = await Promise.all(
-        targetYears.map((y) =>
-          fetch(`/api/schedule?year=${y}${refreshQuery}`, { cache: 'no-store' }).then((r) => r.json())
-        )
+        targetYears.map(async (y) => {
+          try {
+            const res = await fetch(`/api/schedule?year=${y}${refreshQuery}`, { cache: 'no-store' });
+            const json = await res.json();
+            return { ok: res.ok, ...json };
+          } catch (e) {
+            return { ok: false, success: false, data: [] };
+          }
+        })
       );
 
-      let loaded: CustomSchedule[] = [];
+      // 크롤링 성공 여부 및 폴백 여부 확인
+      const allSucceeded = responses.every((r) => r.ok && r.success);
+      const anyFallback = responses.some((r) => r.source === 'fallback_database' || !r.success);
       const combined = responses.flatMap((res) => res.data || []);
 
-      loaded = combined.map((item: CustomSchedule) => ({
-        ...item,
-        title: item.title.replace(/^(\d{2,4}[-년\s]*[12]학기|\d{2,4}학년도|\d{2,4}년)\s*/, '').trim() || item.title,
-      }));
+      // 유효한 일정이 있을 때만 상태를 업데이트 (크롤링 실패/빈 응답 시 기존 일정 증발 방지)
+      if (combined.length > 0) {
+        let loaded = combined.map((item: CustomSchedule) => ({
+          ...item,
+          title: item.title.replace(/^(\d{2,4}[-년\s]*[12]학기|\d{2,4}학년도|\d{2,4}년)\s*/, '').trim() || item.title,
+        }));
 
-      // 로컬 스토리지에 저장된 사용자 개인 일정 불러오기
-      if (typeof window !== 'undefined') {
-        const saved = localStorage.getItem('dsu_personal_schedules');
-        if (saved) {
-          try {
-            const personal = JSON.parse(saved);
-            loaded = [...loaded, ...personal];
-          } catch (e) {
-            console.error(e);
+        // 로컬 스토리지에 저장된 사용자 개인 일정 불러오기
+        if (typeof window !== 'undefined') {
+          const saved = localStorage.getItem('dsu_personal_schedules');
+          if (saved) {
+            try {
+              const personal = JSON.parse(saved);
+              loaded = [...loaded, ...personal];
+            } catch (e) {
+              console.error(e);
+            }
           }
         }
+        setSchedules(loaded);
       }
-      setSchedules(loaded);
 
+      // 새로고침 완료 알림 (성공 / 기존 DB 유지 / 완전 실패 구분)
       if (forceRefresh) {
-        setSyncToast('동서대 학사일정이 최신화되었습니다.');
-        setTimeout(() => setSyncToast(null), 2500);
+        if (allSucceeded) {
+          setSyncToast('동서대 학사일정이 최신화되었습니다.');
+        } else if (anyFallback && combined.length > 0) {
+          setSyncToast('동서대 서버 응답 지연: 기존 저장된 일정을 유지합니다.');
+        } else {
+          setSyncToast('동서대 일정 서버에 연결할 수 없습니다.');
+        }
+        setTimeout(() => setSyncToast(null), 3000);
       }
     } catch (err) {
       console.error(err);
       if (forceRefresh) {
         setSyncToast('일정 동기화 중 오류가 발생했습니다.');
-        setTimeout(() => setSyncToast(null), 2500);
+        setTimeout(() => setSyncToast(null), 3000);
       }
     } finally {
       if (showLoading) setLoading(false);
