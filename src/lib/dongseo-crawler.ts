@@ -319,33 +319,74 @@ export async function scrapeDongseoSchedule(year: number = new Date().getFullYea
       if (seenKeys.has(itemKey)) return;
       seenKeys.add(itemKey);
 
-      // 날짜 파싱 (예: "11. 09(월)", "11. 23(월) ~ 11. 24(화)", "09. 01(화) ~ 10. 30(금)")
+      // 날짜 파싱 (예: "11. 09(월)", "11. 23(월) ~ 11. 24(화)", "12. 22(화) ~ 02. 26(금)", "2026. 12. 22 ~ 2027. 02. 26")
       let startDateStr = '';
       let endDateStr = '';
 
+      const parseDatePart = (part: string, defaultYear: number) => {
+        // 1. 4자리 연도가 포함된 경우: 2026. 12. 22
+        const y4Match = part.match(/(20\d{2})[.\-\s]+(\d{1,2})[.\-\s]+(\d{1,2})/);
+        if (y4Match) {
+          return {
+            y: parseInt(y4Match[1], 10),
+            m: parseInt(y4Match[2], 10),
+            d: parseInt(y4Match[3], 10),
+          };
+        }
+        // 2. 월.일 만 있는 경우: 12. 22
+        const mdMatch = part.match(/(\d{1,2})[.\-\s]+(\d{1,2})/);
+        if (mdMatch) {
+          return {
+            y: defaultYear,
+            m: parseInt(mdMatch[1], 10),
+            d: parseInt(mdMatch[2], 10),
+          };
+        }
+        return null;
+      };
+
       if (rawDate.includes('~')) {
         const parts = rawDate.split('~').map(s => s.trim());
-        const startMatch = parts[0].match(/(\d{1,2})\.\s*(\d{1,2})/);
-        const endMatch = parts[1].match(/(\d{1,2})\.\s*(\d{1,2})/);
+        const start = parseDatePart(parts[0], year);
+        const end = parseDatePart(parts[1], year);
 
-        if (startMatch) {
-          const startM = String(startMatch[1]).padStart(2, '0');
-          const startD = String(startMatch[2]).padStart(2, '0');
-          startDateStr = `${year}-${startM}-${startD}`;
+        if (start) {
+          const sm = String(start.m).padStart(2, '0');
+          const sd = String(start.d).padStart(2, '0');
+          startDateStr = `${start.y}-${sm}-${sd}`;
         }
-        if (endMatch) {
-          const endM = String(endMatch[1]).padStart(2, '0');
-          const endD = String(endMatch[2]).padStart(2, '0');
-          endDateStr = `${year}-${endM}-${endD}`;
+
+        if (end) {
+          let endYear = end.y;
+          // ⚠️ 연도를 넘어가는 일정 처리 (종료일이 시작일보다 앞서는 버그 방지)
+          // 시작일과 종료일에 명시적 연도가 없고, 종료 월이 시작 월보다 작다면 다음 연도로 계산 (예: 12월 -> 1월/2월)
+          if (start && end.y === year && end.m < start.m) {
+            endYear = start.y + 1;
+          }
+
+          const em = String(end.m).padStart(2, '0');
+          const ed = String(end.d).padStart(2, '0');
+          endDateStr = `${endYear}-${em}-${ed}`;
         } else {
           endDateStr = startDateStr;
         }
       } else {
-        const singleMatch = rawDate.match(/(\d{1,2})\.\s*(\d{1,2})/);
-        if (singleMatch) {
-          const sm = String(singleMatch[1]).padStart(2, '0');
-          const sd = String(singleMatch[2]).padStart(2, '0');
-          startDateStr = `${year}-${sm}-${sd}`;
+        const single = parseDatePart(rawDate, year);
+        if (single) {
+          const sm = String(single.m).padStart(2, '0');
+          const sd = String(single.d).padStart(2, '0');
+          startDateStr = `${single.y}-${sm}-${sd}`;
+          endDateStr = startDateStr;
+        }
+      }
+
+      // 최종 안전 보정: 어떠한 경우에도 종료일이 시작일보다 앞서지 않도록 보장
+      if (startDateStr && endDateStr && endDateStr < startDateStr) {
+        const [sy, sm] = startDateStr.split('-').map(Number);
+        const [ey, em, ed] = endDateStr.split('-').map(Number);
+        if (em < sm) {
+          endDateStr = `${sy + 1}-${String(em).padStart(2, '0')}-${String(ed).padStart(2, '0')}`;
+        } else {
           endDateStr = startDateStr;
         }
       }

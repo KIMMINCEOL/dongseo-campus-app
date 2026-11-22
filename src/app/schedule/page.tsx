@@ -1477,22 +1477,25 @@ export default function SchedulePage() {
 
 function filterSchedulesForDate(dateStr: string, schedules: CustomSchedule[]) {
   return schedules.filter((s) => {
-    // 단일 일정이거나 2일 일정인 경우 전체 기간 표시
+    // 단일 일정이거나 시작일과 종료일이 같은 경우
     if (s.startDate === s.endDate) {
       return dateStr === s.startDate;
     }
 
+    // 만약 데이터 오류로 종료일이 시작일보다 앞서 있다면 안전 보정
+    const fixedEndDate = s.endDate >= s.startDate ? s.endDate : s.startDate;
+
     const start = new Date(s.startDate).getTime();
-    const end = new Date(s.endDate).getTime();
+    const end = new Date(fixedEndDate).getTime();
     const diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24));
 
     // 일수가 3일 이상 길어지는 일정은 첫날(시작일)과 마지막 날(종료일)만 나오도록 처리
     if (diffDays >= 2) {
-      return dateStr === s.startDate || dateStr === s.endDate;
+      return dateStr === s.startDate || dateStr === fixedEndDate;
     }
 
     // 2일 일정은 시작일과 종료일 모두 포함
-    return dateStr >= s.startDate && dateStr <= s.endDate;
+    return dateStr >= s.startDate && dateStr <= fixedEndDate;
   });
 }
 
