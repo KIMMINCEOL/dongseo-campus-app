@@ -23,37 +23,40 @@ export const supabaseAdmin = (isSupabaseConfigured && supabaseUrl && supabaseSer
     })
   : supabase;
 
-// 로컬 인메모리 리뷰 저장소 (Supabase 키가 설정되지 않았을 때 폴백)
+// 로컬 인메모리 리뷰 저장소 (Supabase 키가 설정되지 않았을 때 폴백 - 날짜 동적 생성)
+const todayDateStr = new Date().toISOString().slice(0, 10);
+const nowIso = new Date().toISOString();
+
 let localReviews: MealReview[] = [
   {
     id: 'rev-1',
     menuId: 'caf-1',
     restaurant: '학생식당',
-    date: '2026-09-27',
+    date: todayDateStr,
     studentEmailMasked: 'kim***@dongseo.ac.kr',
     rating: 5,
     comment: '돈까스 바삭하고 소스도 진해서 오늘 완전 최고였습니다! 가성비 짱',
-    createdAt: '2026-09-27T12:30:00Z',
+    createdAt: nowIso,
   },
   {
     id: 'rev-2',
     menuId: 'caf-1',
     restaurant: '학생식당',
-    date: '2026-09-27',
+    date: todayDateStr,
     studentEmailMasked: 'lee***@dongseo.ac.kr',
     rating: 4,
     comment: '미니 우동 국물이 조금 짰지만 돈까스는 매우 만족스러웠어요.',
-    createdAt: '2026-09-27T12:45:00Z',
+    createdAt: nowIso,
   },
   {
     id: 'rev-3',
     menuId: 'caf-2',
     restaurant: '학생식당',
-    date: '2026-09-27',
+    date: todayDateStr,
     studentEmailMasked: 'park***@dongseo.ac.kr',
     rating: 4,
     comment: '김치찌개 고기 듬뿍 들어있어서 든든하게 먹었습니다.',
-    createdAt: '2026-09-27T13:10:00Z',
+    createdAt: nowIso,
   }
 ];
 

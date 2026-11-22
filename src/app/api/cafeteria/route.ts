@@ -6,6 +6,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const restaurant = searchParams.get('restaurant') as RestaurantType | null;
   const date = searchParams.get('date');
+  const todayStr = new Date().toISOString().slice(0, 10);
 
   let list = [...MOCK_CAFETERIA];
 
@@ -20,6 +21,6 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     success: true,
     data: list,
-    date: date || '2026-09-27'
+    date: date || todayStr
   });
 }

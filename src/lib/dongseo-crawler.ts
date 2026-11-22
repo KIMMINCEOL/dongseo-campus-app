@@ -12,75 +12,82 @@ const PCODE_MAP: Record<NoticeCategory, string> = {
   '행사': 'MN2000196', // 행사공지
 };
 
+// 📅 연도 및 날짜 동적 생성 헬퍼 (하드코딩 방지: 내년/후년에도 수정 불필요)
+const currentBaseYear = new Date().getFullYear();
+const getDynamicDateStr = (daysAgo: number = 0) => {
+  const d = new Date(Date.now() - daysAgo * 86400000);
+  return d.toISOString().slice(0, 10);
+};
+
 // 현실적인 동서대 기본 목업 데이터 (오프라인 / 스크래핑 실패 시 즉각 폴백)
 export const MOCK_NOTICES: Notice[] = [
   {
     id: 'dsu-101',
-    title: '[학사] 2026학년도 2학기 수강신청 변경 및 정정 기간 안내',
+    title: `[학사] ${currentBaseYear}학년도 2학기 수강신청 변경 및 정정 기간 안내`,
     category: '학사',
     author: '교무처 학사지원팀',
-    date: '2026-09-25',
+    date: getDynamicDateStr(1),
     views: 1842,
     isPinned: true,
     url: 'https://www.dongseo.ac.kr/kr/index.php?pCode=MN2000193&mode=view&idx=101',
-    contentText: `2026학년도 2학기 수강신청 변경 및 최종 정정 기간을 다음과 같이 안내하오니 학생 여러분께서는 기간 내에 필히 확인하시기 바랍니다.\n\n1. 정정 기간: 2026. 09. 28(월) 10:00 ~ 10. 02(금) 17:00까지\n2. 대상: 재학생 및 복학생 전원\n3. 신청 방법: 동서대학교 종합정보시스템(포털) 로그인 > 학생정보 > 수강정정\n4. 유의사항:\n - 최소 이수학점(12학점 이상) 미달 시 장학금 수혜 대상에서 제외될 수 있습니다.\n - 폐강 강좌 수강생은 반드시 타 강좌로 대체 신청바랍니다.`,
+    contentText: `${currentBaseYear}학년도 2학기 수강신청 변경 및 최종 정정 기간을 다음과 같이 안내하오니 학생 여러분께서는 기간 내에 필히 확인하시기 바랍니다.\n\n1. 대상: 재학생 및 복학생 전원\n2. 신청 방법: 동서대학교 종합정보시스템(포털) 로그인 > 학생정보 > 수강정정\n3. 유의사항:\n - 최소 이수학점(12학점 이상) 미달 시 장학금 수혜 대상에서 제외될 수 있습니다.\n - 폐강 강좌 수강생은 반드시 타 강좌로 대체 신청바랍니다.`,
     attachments: [
-      { name: '2026-2학기 수강신청 정정 매뉴얼.pdf', url: 'https://www.dongseo.ac.kr/files/manual_2026_2.pdf', size: '1.4MB' },
+      { name: '수강신청 정정 매뉴얼.pdf', url: 'https://www.dongseo.ac.kr/files/manual_courses.pdf', size: '1.4MB' },
       { name: '개설강좌 변경사항 목록.xlsx', url: 'https://www.dongseo.ac.kr/files/courses_change.xlsx', size: '240KB' }
     ]
   },
   {
     id: 'dsu-102',
-    title: '[장학] 2026년 2학기 동서희망장학금 및 성적우수장학금 지급 일정 안내',
+    title: `[장학] ${currentBaseYear}년 2학기 동서희망장학금 및 성적우수장학금 지급 일정 안내`,
     category: '장학',
     author: '학생취업지원처',
-    date: '2026-09-24',
+    date: getDynamicDateStr(2),
     views: 2410,
     isPinned: true,
     url: 'https://www.dongseo.ac.kr/kr/index.php?pCode=MN2000194&mode=view&idx=102',
-    contentText: `2026학년도 2학기 동서희망장학금 및 교내 성적우수장학금 지급 관련 일정을 안내해 드립니다.\n\n1. 지급 대상: 장학생 선발 심사를 통과한 본교 정규학기 등록 재학생\n2. 지급 방법: 학생 종합정보시스템에 등록된 본인 명의 계좌 입금 또는 학자금 대출 상환\n3. 지급 예정일: 2026. 10. 15(목) 오후 순차 지급 예정\n4. 문의처: 학생취업지원처 장학지원팀 (051-320-2043~4)`,
+    contentText: `${currentBaseYear}학년도 2학기 동서희망장학금 및 교내 성적우수장학금 지급 관련 일정을 안내해 드립니다.\n\n1. 지급 대상: 장학생 선발 심사를 통과한 본교 정규학기 등록 재학생\n2. 지급 방법: 학생 종합정보시스템에 등록된 본인 명의 계좌 입금 또는 학자금 대출 상환\n3. 문의처: 학생취업지원처 장학지원팀 (051-320-2043~4)`,
     attachments: [
-      { name: '2026-2 장학금 지급 규정 및 선발 기준안.hwp', url: 'https://www.dongseo.ac.kr/files/scholarship_rule.hwp', size: '820KB' }
+      { name: '장학금 지급 규정 및 선발 기준안.hwp', url: 'https://www.dongseo.ac.kr/files/scholarship_rule.hwp', size: '820KB' }
     ]
   },
   {
     id: 'dsu-103',
-    title: '[일반] 2026 DSU 가을 대동제 축제 및 동아리 버스킹 공연 일정 안내',
+    title: `[일반] ${currentBaseYear} DSU 가을 대동제 축제 및 동아리 버스킹 공연 일정 안내`,
     category: '일반',
     author: '총학생회',
-    date: '2026-09-23',
+    date: getDynamicDateStr(3),
     views: 3120,
     isPinned: false,
     url: 'https://www.dongseo.ac.kr/kr/index.php?pCode=MN2000192&mode=view&idx=103',
-    contentText: `학우 여러분 안녕하십니까! 2026년 동서대학교 가을 대동제가 본교 스튜던트 플라자 및 민석스포츠센터 야외 광장에서 개최됩니다.\n\n일시: 2026. 10. 08(목) ~ 10. 09(금) 양일간\n주요 프로그램:\n - 초대가수 축하공연 (라인업 추후 인스타그램 및 공지 발표)\n - 단과대별 야시장 및 푸드트럭 운영\n - 동아리 버스킹 및 DSU e스포츠 결승전\n\n안전하고 즐거운 축제가 될 수 있도록 많은 관심과 참여 부탁드립니다.`,
+    contentText: `학우 여러분 안녕하십니까! ${currentBaseYear}년 동서대학교 가을 대동제가 본교 스튜던트 플라자 및 민석스포츠센터 야외 광장에서 개최됩니다.\n\n주요 프로그램:\n - 초대가수 축하공연 (라인업 추후 인스타그램 및 공지 발표)\n - 단과대별 야시장 및 푸드트럭 운영\n - 동아리 버스킹 및 DSU e스포츠 결승전\n\n안전하고 즐거운 축제가 될 수 있도록 많은 관심과 참여 부탁드립니다.`,
     attachments: [
       { name: '대동제 부스배치도 및 안전수칙.png', url: 'https://www.dongseo.ac.kr/files/festival_map.png', size: '3.1MB' }
     ]
   },
   {
     id: 'dsu-104',
-    title: '[취업] 2026 하반기 주요 IT/소프트웨어 및 대기업 채용박람회 참가 안내',
+    title: `[취업] ${currentBaseYear} 하반기 주요 IT/소프트웨어 및 대기업 채용박람회 참가 안내`,
     category: '취업',
     author: '대학일자리플러스센터',
-    date: '2026-09-21',
+    date: getDynamicDateStr(4),
     views: 940,
     isPinned: false,
     url: 'https://www.dongseo.ac.kr/kr/index.php?pCode=MN2000195&mode=view&idx=104',
-    contentText: `대학일자리플러스센터에서 동서대 학생들을 위한 하반기 공채 대비 취업박람회 및 1:1 현직자 멘토링 세션을 운영합니다.\n\n- 일시: 2026. 10. 14(수) 13:00 ~ 18:00\n- 장소: 뉴밀레니엄관 2층 글로벌룸\n- 사전 등록 혜택: 이력서 무료 사진 촬영권 및 현직자 모의면접 참가 기회 제공`,
+    contentText: `대학일자리플러스센터에서 동서대 학생들을 위한 하반기 공채 대비 취업박람회 및 1:1 현직자 멘토링 세션을 운영합니다.\n\n- 장소: 뉴밀레니엄관 2층 글로벌룸\n- 사전 등록 혜택: 이력서 무료 사진 촬영권 및 현직자 모의면접 참가 기회 제공`,
     attachments: [
       { name: '참가기업 명단 및 사전신청서.hwp', url: 'https://www.dongseo.ac.kr/files/job_fair_list.hwp', size: '512KB' }
     ]
   },
   {
     id: 'dsu-105',
-    title: '[행사] 제14회 동서 미디어 콘텐츠 공모전 출품작 접수 (상금 총 1,000만원)',
+    title: `[행사] 제14회 동서 미디어 콘텐츠 공모전 출품작 접수 (상금 총 1,000만원)`,
     category: '행사',
     author: '미디어커뮤니케이션학부',
-    date: '2026-09-20',
+    date: getDynamicDateStr(5),
     views: 1250,
     isPinned: false,
     url: 'https://www.dongseo.ac.kr/kr/index.php?pCode=MN2000196&mode=view&idx=105',
-    contentText: `동서대학교 미디어 혁신 인재 양성을 위한 2026 전국 대학생 미디어 콘텐츠 공모전을 개최합니다. 본교 재학생 여러분의 번뜩이는 아이디어와 작품을 기다립니다.`,
+    contentText: `동서대학교 미디어 혁신 인재 양성을 위한 ${currentBaseYear} 전국 대학생 미디어 콘텐츠 공모전을 개최합니다. 본교 재학생 여러분의 번뜩이는 아이디어와 작품을 기다립니다.`,
     attachments: []
   }
 ];
@@ -89,7 +96,7 @@ export const MOCK_NOTICES: Notice[] = [
 export const MOCK_CAFETERIA: CafeteriaMenu[] = [
   {
     id: 'caf-1',
-    date: '2026-09-27',
+    date: getDynamicDateStr(0),
     restaurant: '학생식당',
     mealType: '중식',
     cornerName: '일품코너',
@@ -101,7 +108,7 @@ export const MOCK_CAFETERIA: CafeteriaMenu[] = [
   },
   {
     id: 'caf-2',
-    date: '2026-09-27',
+    date: getDynamicDateStr(0),
     restaurant: '학생식당',
     mealType: '중식',
     cornerName: '찌개 & 백반코너',
@@ -113,7 +120,7 @@ export const MOCK_CAFETERIA: CafeteriaMenu[] = [
   },
   {
     id: 'caf-3',
-    date: '2026-09-27',
+    date: getDynamicDateStr(0),
     restaurant: '학생식당',
     mealType: '석식',
     cornerName: '석식 정식',
@@ -125,7 +132,7 @@ export const MOCK_CAFETERIA: CafeteriaMenu[] = [
   },
   {
     id: 'caf-4',
-    date: '2026-09-27',
+    date: getDynamicDateStr(0),
     restaurant: '교직원식당',
     mealType: '중식',
     cornerName: '교직원 웰빙 뷔페',
@@ -137,7 +144,7 @@ export const MOCK_CAFETERIA: CafeteriaMenu[] = [
   },
   {
     id: 'caf-5',
-    date: '2026-09-27',
+    date: getDynamicDateStr(0),
     restaurant: '기숙사식당',
     mealType: '조식',
     cornerName: '기숙사 조식',
@@ -149,7 +156,7 @@ export const MOCK_CAFETERIA: CafeteriaMenu[] = [
   },
   {
     id: 'caf-6',
-    date: '2026-09-27',
+    date: getDynamicDateStr(0),
     restaurant: '기숙사식당',
     mealType: '석식',
     cornerName: '기숙사 석식',
@@ -311,7 +318,7 @@ export async function scrapeDongseoSchedule(year: number = new Date().getFullYea
 
       if (!rawTitle || !rawDate) return;
 
-      // '2026-2학기', '26-2학기', '2026-1학기', '26-1학기', '2027-1학기' 등의 접두사 제거
+      // 학기 및 연도 접두사 제거 (예: '20XX-2학기', 'XX-2학기' 등 동적 정규식)
       const title = rawTitle.replace(/^(\d{2,4}[-년\s]*[12]학기|\d{2,4}학년도|\d{2,4}년)\s*/, '').trim() || rawTitle;
 
       // 중복 방지 키
@@ -319,13 +326,13 @@ export async function scrapeDongseoSchedule(year: number = new Date().getFullYea
       if (seenKeys.has(itemKey)) return;
       seenKeys.add(itemKey);
 
-      // 날짜 파싱 (예: "11. 09(월)", "11. 23(월) ~ 11. 24(화)", "12. 22(화) ~ 02. 26(금)", "2026. 12. 22 ~ 2027. 02. 26")
+      // 날짜 파싱 (예: "11. 09(월)", "11. 23(월) ~ 11. 24(화)", "12. 22(화) ~ 02. 26(금)")
       let startDateStr = '';
       let endDateStr = '';
 
       const parseDatePart = (part: string, defaultYear: number) => {
-        // 1. 4자리 연도가 포함된 경우: 2026. 12. 22
-        const y4Match = part.match(/(20\d{2})[.\-\s]+(\d{1,2})[.\-\s]+(\d{1,2})/);
+        // 1. 4자리 연도가 포함된 경우
+        const y4Match = part.match(/(\d{4})[.\-\s]+(\d{1,2})[.\-\s]+(\d{1,2})/);
         if (y4Match) {
           return {
             y: parseInt(y4Match[1], 10),
